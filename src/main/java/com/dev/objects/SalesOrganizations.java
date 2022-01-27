@@ -23,6 +23,10 @@ public class SalesOrganizations {
         this.organization = organization;
         this.sale = sale;
     }
+    public SalesOrganizations(SaleObject sale) {
+        this.organization = null;
+        this.sale = sale;
+    }
 
     //Getters
     public int getId() { return id; }

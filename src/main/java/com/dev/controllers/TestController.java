@@ -1,11 +1,13 @@
 package com.dev.controllers;
 
 import com.dev.Persist;
+import com.dev.objects.OrganizationObject;
 import com.dev.objects.SaleObject;
 import com.dev.objects.ShopObjects;
 import com.dev.objects.UserObject;
 import com.dev.utils.MessagesHandler;
 import com.dev.utils.Utils;
+import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -34,10 +36,6 @@ public class TestController {
         for (SaleObject sale : sales) {
             initializeTimersForSale(sale);
         }
-
-        System.out.println("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");
-        System.out.println((sales.get(1).getEndDate().minus(10, ChronoUnit.MINUTES)));
-        System.out.println("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");
 
     }
 
@@ -102,39 +100,55 @@ public class TestController {
         return persist.getAllSalesForUser(token);
     }
 
+    @RequestMapping(value = "/get-all-organizations", method = RequestMethod.GET)
+    public List<OrganizationObject> getAllOrganizations(String token){
+        return persist.getAllOrganizations(token);
+    }
+
+    @RequestMapping(value = "/add-sale", method = RequestMethod.POST)
+    public boolean addSale(String token, int[] orgIds, int shopId, String description, String startDate, String endDate, boolean isRelevantToAll){
+        SaleObject sale = persist.addSale(token, orgIds, shopId, description, LocalDateTime.parse(startDate), LocalDateTime.parse(endDate), isRelevantToAll);
+        if(sale != null){
+            initializeTimersForSale(sale);
+            return true;
+        }
+        return false;
+    }
+
     private void initializeTimersForSale(SaleObject sale){
-        long saleStartMilli = sale.getStartDate().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        long saleEndMilli = sale.getEndDate().minus(10, ChronoUnit.MINUTES).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-
-        Timer startTimer = new Timer();
-        Timer endTimer = new Timer();
-
-        TimerTask startTask = new TimerTask() {
-            @Override
-            public void run() {
-                try {
-                    messagesHandler.sendStartSaleNotifications(persist.getUsersForOneSale(sale.getId()), sale);
-                } catch (IOException e) {
-                    e.printStackTrace();
+        if(sale.getStartDate().isAfter(LocalDateTime.now())) {
+            long saleStartMilli = sale.getStartDate().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            Timer startTimer = new Timer();
+            TimerTask startTask = new TimerTask() {
+                @Override
+                public void run() {
+                    try {
+                        messagesHandler.sendStartSaleNotifications(persist.getUsersForOneSale(sale.getId()), sale);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                 }
-            }
-        };
-        TimerTask endTask = new TimerTask() {
-            @Override
-            public void run() {
-                try {
-                    messagesHandler.sendEndSaleNotifications(persist.getUsersForOneSale(sale.getId()), sale);
-                } catch (IOException e) {
-                    e.printStackTrace();
+            };
+            startTimer.schedule(startTask, new Date(saleStartMilli));
+            timers.add(startTimer);
+        }
+
+        if(sale.getEndDate().minus(10, ChronoUnit.MINUTES).isAfter(LocalDateTime.now())) {
+            long saleEndMilli = sale.getEndDate().minus(10, ChronoUnit.MINUTES).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            Timer endTimer = new Timer();
+            TimerTask endTask = new TimerTask() {
+                @Override
+                public void run() {
+                    try {
+                        messagesHandler.sendEndSaleNotifications(persist.getUsersForOneSale(sale.getId()), sale);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                 }
-            }
-        };
-
-        startTimer.schedule(startTask, new Date(saleStartMilli));
-        endTimer.schedule(endTask, new Date(saleEndMilli));
-
-        timers.add(startTimer);
-        timers.add(endTimer);
+            };
+            endTimer.schedule(endTask, new Date(saleEndMilli));
+            timers.add(endTimer);
+        }
     }
 
 }

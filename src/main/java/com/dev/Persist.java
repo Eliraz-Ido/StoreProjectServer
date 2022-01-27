@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
+import java.time.LocalDateTime;
 import java.util.*;
 
 
@@ -125,6 +126,22 @@ public class Persist {
         session.close();
         return finalList.size()!= empty? finalList : null;
     }
+     public List<OrganizationObject> getAllOrganizations(String token){
+         Session session = sessionFactory.openSession();
+         Transaction transaction = session.beginTransaction();
+
+         UserObject user = (UserObject) session.createQuery("FROM UserObject WHERE token =: token")
+                 .setParameter("token", token).getSingleResult();
+         List<OrganizationObject> finalList = new ArrayList<>();
+         if(user != null){
+             for(Object org : session.createQuery("FROM OrganizationObject ").list())
+                 finalList.add((OrganizationObject) org);
+         }
+
+         transaction.commit();
+         session.close();
+         return finalList.size()!= empty ? finalList : null;
+     }
 
     public void addMemberToOrganization(String token, int orgId){              //////////////////////////////////////////////////
         Session session = sessionFactory.openSession();
@@ -182,9 +199,11 @@ public class Persist {
 
         UserObject user = (UserObject) session.createQuery("FROM UserObject WHERE token =: token")
                 .setParameter("token", token).getSingleResult();
-        List<ShopObjects> shops = null;
+        List<ShopObjects> shops = new ArrayList<>();
         if (user != null) {
-            shops = session.createQuery("FROM ShopObjects").list();
+            for(Object shop : session.createQuery("FROM ShopObjects").list()){
+                shops.add((ShopObjects) shop);
+            }
         }
 
         transaction.commit();
@@ -250,7 +269,9 @@ public class Persist {
         SaleObject sale = session.load(SaleObject.class, saleId);
 
         if(sale.isToAllUsers()) {
-            users.addAll(session.createQuery("FROM UserObject ").list());
+            List userList = session.createQuery("FROM UserObject ").list();
+            for(Object user : userList)
+                users.add((UserObject) user);
         }
         else {
             List salesOrganizations = session.createQuery("FROM SalesOrganizations WHERE sale.id = :saleId")
@@ -268,12 +289,37 @@ public class Persist {
     public List<SaleObject> getAllSales() {
         Session session = sessionFactory.openSession();
         Transaction transaction = session.beginTransaction();
+
         List<SaleObject> sales = new ArrayList<>();
-        List temp = session.createQuery("FROM SaleObject ").list();
-        for(Object o : temp)
-            sales.add((SaleObject) o);
+        for(Object sale : session.createQuery("FROM SaleObject ").list())
+            sales.add((SaleObject) sale);
+
         transaction.commit();
         session.close();
         return sales;
+    }
+
+    public SaleObject addSale(String token, int[] orgIds, int shopId, String description, LocalDateTime startDate, LocalDateTime endDate, boolean isRelevantToAll) {
+        Session session = sessionFactory.openSession();
+        Transaction transaction = session.beginTransaction();
+
+        UserObject user = (UserObject) session.createQuery("FROM UserObject WHERE token = :token" )
+                .setParameter("token", token).getSingleResult();
+        SaleObject sale = new SaleObject(session.load(ShopObjects.class, shopId), description, startDate, endDate, isRelevantToAll);
+        session.save(sale);
+
+        if (user != null) {
+            if(isRelevantToAll) {
+                session.save(new SalesOrganizations(sale));
+            }
+            else {
+                for(int orgId : orgIds){
+                    session.save(new SalesOrganizations(session.load(OrganizationObject.class, orgId), sale));
+                }
+            }
+        }
+        transaction.commit();
+        session.close();
+        return sale;
     }
 }
