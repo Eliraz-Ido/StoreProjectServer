@@ -7,7 +7,6 @@ import com.dev.objects.ShopObjects;
 import com.dev.objects.UserObject;
 import com.dev.utils.MessagesHandler;
 import com.dev.utils.Utils;
-import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -23,6 +22,8 @@ import java.util.*;
 @RestController
 public class TestController {
     List<Timer> timers = new ArrayList<>();
+    final int sendNotification_X_MinutesBeforeTheSaleEnds = 10;
+
 
     @Autowired
     private final MessagesHandler messagesHandler = new MessagesHandler();
@@ -133,8 +134,8 @@ public class TestController {
             timers.add(startTimer);
         }
 
-        if(sale.getEndDate().minus(10, ChronoUnit.MINUTES).isAfter(LocalDateTime.now())) {
-            long saleEndMilli = sale.getEndDate().minus(10, ChronoUnit.MINUTES).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        if(sale.getEndDate().minus(sendNotification_X_MinutesBeforeTheSaleEnds, ChronoUnit.MINUTES).isAfter(LocalDateTime.now())) {
+            long saleEndMilli = sale.getEndDate().minus(sendNotification_X_MinutesBeforeTheSaleEnds, ChronoUnit.MINUTES).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
             Timer endTimer = new Timer();
             TimerTask endTask = new TimerTask() {
                 @Override

@@ -16,6 +16,7 @@ import java.util.*;
 public class Persist {
     final int empty = 0;
     final int firstObject = 0;
+    final int secondObject = 1;
     private final SessionFactory sessionFactory;
 
     @Autowired
@@ -56,8 +57,8 @@ public class Persist {
 //                LocalDateTime.of(2022, 1, 5, 10, 20),
 //                LocalDateTime.of(2022, 1, 6, 10, 20), false);
 //
-//        orgList.get(1).getSales().add(sale);
-//        orgList.get(2).getSales().add(sale);
+//        orgList.get(firstObject).getSales().add(sale);
+//        orgList.get(secondObject).getSales().add(sale);
 //        session.save(sale);
 //
 //        transaction.commit();
